@@ -25,7 +25,7 @@
     "version": "./update-next.sh && git add alterations/",
     "generate": "./generate.sh",
     "build:alterations": "rm -rf alterations-js && tsc -p tsconfig.build.alterations.json",
-    "build": "pnpm generate && rm -rf lib/ && tsc -p tsconfig.build.json && pnpm build:alterations && rm -rf alterations-js",
+    "build": "pnpm generate && rm -rf lib/ && tsc -p tsconfig.build.json && pnpm build:alterations",
     "build:test": "pnpm build",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput --incremental",
     "lint": "eslint --ext .ts src",
