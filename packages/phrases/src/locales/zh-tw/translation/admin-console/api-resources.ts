@@ -6,6 +6,8 @@ const api_resources = {
   api_name: 'API 名稱',
   api_name_placeholder: '輸入API名稱',
   api_identifier: 'API Identifier',
+  /** UNTRANSLATED */
+  resource_id: 'Resource Id',
   api_identifier_placeholder: 'https://your-api-identifier/',
   api_identifier_tip:
     '對於 API 資源的唯一標識符。它必須是一個絕對 URI，並沒有 fragment (#) 組件。等價於 OAuth 2.0 中的 <a>resource parameter</a>。',

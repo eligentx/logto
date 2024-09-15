@@ -6,6 +6,8 @@ const api_resources = {
   api_name: 'Название API',
   api_name_placeholder: 'Введите название вашего API',
   api_identifier: 'Идентификатор API',
+  /** UNTRANSLATED */
+  resource_id: 'Resource Id',
   api_identifier_placeholder: 'https://your-api-identifier/',
   api_identifier_tip:
     'Уникальный идентификатор для ресурса API. Он должен быть абсолютным URI и не иметь фрагмента (#). Равен параметру <a>resource</a> в OAuth 2.0.',
