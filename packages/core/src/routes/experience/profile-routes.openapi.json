@@ -2,8 +2,8 @@
   "paths": {
     "/api/experience/profile": {
       "post": {
-        "operationId": "UpdateUserProfile",
-        "summary": "Update user profile data",
+        "operationId": "AddUserProfile",
+        "summary": "Add user profile",
         "description": "Adds user profile data to the current experience interaction. <br/>- For `Register`: The profile data provided before the identification request will be used to create a new user account. <br/>- For `SignIn` and `Register`: The profile data provided after the user is identified will be used to update the user's profile when the interaction is submitted. <br/>- `ForgotPassword`: Not supported.",
         "requestBody": {
           "content": {
@@ -38,7 +38,7 @@
             "description": "`SignIn` interaction only: MFA is enabled for the user but has not been verified. The user must verify the MFA before updating the profile data."
           },
           "422": {
-            "description": "The user profile can not been processed, check error message for more details. <br/>- The profile data is invalid or conflicts with existing user data. <br/>- The profile data is already in use by another user account."
+            "description": "The user profile can not been processed, check error message for more details. <br/>- The profile data is invalid or conflicts with existing user data. <br/>- The profile data is already in use by another user account. <br/>- The email address is enterprise SSO enabled, can only be linked through the SSO connector."
           }
         }
       }
