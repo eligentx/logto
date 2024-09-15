@@ -1,3 +1,4 @@
+import { ReservedPlanId } from '@logto/schemas';
 import { type TFuncKey } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
@@ -17,10 +18,13 @@ const registeredSkuIdNamePhraseMap: Record<
 
 type Props = {
   readonly skuId: string;
+  readonly isEnterprisePlan?: boolean;
 };
 
-function SkuName({ skuId }: Props) {
+function SkuName({ skuId: rawSkuId, isEnterprisePlan = false }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: 'admin_console.subscription' });
+  const skuId = isEnterprisePlan ? ReservedPlanId.Enterprise : rawSkuId;
+
   const skuNamePhrase = registeredSkuIdNamePhraseMap[skuId];
 
   /**
