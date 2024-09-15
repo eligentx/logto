@@ -6,6 +6,8 @@ const api_resources = {
   api_name: 'API名称',
   api_name_placeholder: '输入API名称',
   api_identifier: 'API标识符',
+  /** UNTRANSLATED */
+  resource_id: 'Resource Id',
   api_identifier_placeholder: 'https://your-api-identifier/',
   api_identifier_tip:
     '对于API资源的唯一标识符。它必须是一个绝对URI并没有fragment(#)组件。等价于OAuth 2.0中的<a>资源参数</a>。',

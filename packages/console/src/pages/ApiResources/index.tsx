@@ -102,6 +102,12 @@ function ApiResources() {
               colSpan: 10,
               render: ({ indicator }) => <CopyToClipboard value={indicator} variant="text" />,
             },
+            {
+              title: t('api_resources.resource_id'),
+              dataIndex: 'id',
+              colSpan: 10,
+              render: ({ id }) => <CopyToClipboard value={id} variant="text" />,
+            },
           ],
           placeholder: <EmptyDataPlaceholder />,
           rowClickHandler: ({ id }) => {

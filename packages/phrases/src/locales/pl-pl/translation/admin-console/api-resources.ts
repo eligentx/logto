@@ -6,6 +6,8 @@ const api_resources = {
   api_name: 'Nazwa API',
   api_name_placeholder: 'Wprowadź nazwę swojego API',
   api_identifier: 'Identyfikator API',
+  /** UNTRANSLATED */
+  resource_id: 'Resource Id',
   api_identifier_placeholder: 'https://twój-identyfikator-api/',
   api_identifier_tip:
     'Unikalny identyfikator zasobu API. Musi to być bezwzględny adres URI bez składnika fragmentu (#). Jest równy <a>parametrowi zasobu</a> w standardzie OAuth 2.0.',
