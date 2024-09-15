@@ -6,6 +6,8 @@ const api_resources = {
   api_name: 'API Adı',
   api_name_placeholder: 'API adını giriniz',
   api_identifier: 'API Identifier',
+  /** UNTRANSLATED */
+  resource_id: 'Resource Id',
   api_identifier_placeholder: 'https://your-api-identifier/',
   api_identifier_tip:
     'Api kaynağına özgün belirteç. Mutlak URI olmalı ve parça bileşeni (#) içermemeli. OAuth 2.0deki <a>kaynak parametresine</a> eşittir.',
