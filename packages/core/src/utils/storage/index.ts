@@ -1,5 +1,7 @@
 import type { StorageProviderData } from '@logto/schemas';
 
+import { buildMinioStorage } from '#src/utils/storage/minio.js';
+
 import { buildAzureStorage } from './azure-storage.js';
 import { buildGoogleStorage } from './google-storage.js';
 import { buildS3Storage } from './s3-storage.js';
@@ -12,6 +14,14 @@ export const buildUploadFile = (config: StorageProviderData): UploadFile | Uploa
 
     return storage.uploadFile;
   }
+
+  if (config.provider === 'MinIO') {
+    const { bucket, endpoint, accessKeyId, accessSecretKey, region } = config;
+    const storage = buildMinioStorage(bucket, endpoint, accessKeyId, accessSecretKey, region);
+
+    return storage.uploadFile;
+  }
+
   if (config.provider === 'GoogleStorage') {
     const { projectId, keyFilename, bucketName } = config;
     const storage = buildGoogleStorage(projectId, keyFilename, bucketName);
