@@ -7,7 +7,8 @@ export const buildMinioStorage = (
   endpoint: string,
   accessKeyId: string,
   secretAccessKey: string,
-  region: string
+  region: string,
+  publicUrl?: string
 ) => {
   if (!endpoint) {
     throw new Error('Endpoint must be provided for MinIO storage');
@@ -33,7 +34,7 @@ export const buildMinioStorage = (
 
     await client.send(command);
 
-    const baseUrl = `${endpoint}/${bucket}`;
+    const baseUrl = publicUrl ?? `${endpoint}/${bucket}`;
 
     return {
       url: `${baseUrl}/${objectKey}`,
