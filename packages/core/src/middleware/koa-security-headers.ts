@@ -26,6 +26,8 @@ const helmetPromise = async (
     });
   })();
 
+const imageCSP = process.env.ALLOW_HTTP_IMAGES === 'true' ? ['https:', 'http:'] : ['https:'];
+
 export default function koaSecurityHeaders<StateT, ContextT, ResponseBodyT>(
   mountedApps: string[],
   tenantId: string
@@ -99,7 +101,8 @@ export default function koaSecurityHeaders<StateT, ContextT, ResponseBodyT>(
       useDefaults: true,
       directives: {
         'upgrade-insecure-requests': null,
-        imgSrc: ["'self'", 'data:', 'https:'],
+        imgSrc: ["'self'", 'data:', ...imageCSP],
+        // Non-production environment allow "unsafe-eval" and "unsafe-inline" for debugging purpose
         scriptSrc: [
           "'self'",
           "'unsafe-inline'",
@@ -129,8 +132,8 @@ export default function koaSecurityHeaders<StateT, ContextT, ResponseBodyT>(
       useDefaults: true,
       directives: {
         'upgrade-insecure-requests': null,
-        imgSrc: ["'self'", 'data:', 'https:'],
-        // Allow "unsafe-eval" and "unsafe-inline" for debugging purpose in non-production environment
+        imgSrc: ["'self'", 'data:', ...imageCSP],
+        // Non-production environment allow "unsafe-eval" and "unsafe-inline" for debugging purpose
         scriptSrc: [
           "'self'",
           ...conditionalArray(!isProduction && ["'unsafe-eval'", "'unsafe-inline'"]),
