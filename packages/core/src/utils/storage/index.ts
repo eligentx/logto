@@ -16,8 +16,15 @@ export const buildUploadFile = (config: StorageProviderData): UploadFile | Uploa
   }
 
   if (config.provider === 'MinIO') {
-    const { bucket, endpoint, accessKeyId, accessSecretKey, region } = config;
-    const storage = buildMinioStorage(bucket, endpoint, accessKeyId, accessSecretKey, region);
+    const { bucket, endpoint, accessKeyId, accessSecretKey, region, publicUrl } = config;
+    const storage = buildMinioStorage(
+      bucket,
+      endpoint,
+      accessKeyId,
+      accessSecretKey,
+      region,
+      publicUrl
+    );
 
     return storage.uploadFile;
   }
