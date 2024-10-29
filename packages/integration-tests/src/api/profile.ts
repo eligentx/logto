@@ -27,6 +27,24 @@ export const updatePrimaryPhone = async (
     json: { phone, verificationRecordId, newIdentifierVerificationRecordId },
   });
 
+export const updateIdentities = async (
+  api: KyInstance,
+  verificationRecordId: string,
+  newIdentifierVerificationRecordId: string
+) =>
+  api.post('api/profile/identities', {
+    json: { verificationRecordId, newIdentifierVerificationRecordId },
+  });
+
+export const deleteIdentity = async (
+  api: KyInstance,
+  target: string,
+  verificationRecordId: string
+) =>
+  api.delete(`api/profile/identities/${target}`, {
+    searchParams: { verificationRecordId },
+  });
+
 export const updateUser = async (api: KyInstance, body: Record<string, unknown>) =>
   api.patch('api/profile', { json: body }).json<Partial<UserProfileResponse>>();
 

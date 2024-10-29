@@ -86,16 +86,16 @@ const enterprise_sso_details = {
       'Target application the user will be redirected to after authentication.',
     empty_applications_error:
       'No applications found. Please add one in the <a>Applications</a> section.',
+    empty_applications_placeholder: 'No applications',
     authentication_type: 'Authentication type',
-    auto_authentication_disabled_title: 'Redirect to client for SP-initiated SSO (Recommended)',
+    auto_authentication_disabled_title: 'Redirect to client for SP-initiated SSO',
     auto_authentication_disabled_description:
-      'Redirect users to the client-side application to initiate a secure SP-initiated OIDC authentication.  This will prevent the CSRF attack and increase the security of the authentication process.',
+      'Recommended. Redirect users to the client-side application to initiate a secure SP-initiated OIDC authentication.  This will prevent the CSRF attacks.',
     auto_authentication_enabled_title: 'Directly sign in using the IdP-initiated SSO',
     auto_authentication_enabled_description:
-      'Sign in directly using IdP-initiated SSO authentication. After successful sign-in, users will be redirected to the specified Redirect URI with the authorization code. (Without state and PKCE validation)',
-    auto_authentication_disabled_app:
-      'For traditional web applications and single-page applications (SPA)',
-    auto_authentication_enabled_app: 'For traditional web applications only',
+      'After successful sign-in, users will be redirected to the specified Redirect URI with the authorization code (Without state and PKCE validation).',
+    auto_authentication_disabled_app: 'For traditional web app, single-page app (SPA)',
+    auto_authentication_enabled_app: 'For traditional web app',
     idp_initiated_auth_callback_uri: 'Client callback URI',
     idp_initiated_auth_callback_uri_tooltip:
       'The client callback URI to initiate a SP-initiated SSO authentication flow. An ssoConnectorId will be appended to the URI as a query parameter. (e.g., https://your.domain/sso/callback?connectorId={{ssoConnectorId}})',
@@ -104,6 +104,7 @@ const enterprise_sso_details = {
       'The redirect URI to redirect users after successful sign-in. Logto will use this URI as the OIDC redirect URI in the authorization request. Use a dedicated URI for the IdP-initiated SSO authentication flow for better security.',
     empty_redirect_uris_error:
       'No redirect URI has been registered for the application. Please add one first.',
+    redirect_uri_placeholder: 'Select a post sign-in redirect URI',
     auth_params: 'Additional authentication parameters',
     auth_params_tooltip:
       'Additional parameters to be passed in the authorization request. By default only (openid profile) scopes will be requested, you can specify additional scopes or a exclusive state value here. (e.g., { "scope": "organizations email", "state": "secret_state" }).',

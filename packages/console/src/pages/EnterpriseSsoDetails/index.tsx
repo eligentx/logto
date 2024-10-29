@@ -16,7 +16,7 @@ import Skeleton from '@/components/DetailsPage/Skeleton';
 import Drawer from '@/components/Drawer';
 import PageMeta from '@/components/PageMeta';
 import { EnterpriseSsoDetailsTabs } from '@/consts';
-import { isCloud } from '@/consts/env';
+import { isCloud, isDevFeaturesEnabled } from '@/consts/env';
 import { SubscriptionDataContext } from '@/contexts/SubscriptionDataProvider';
 import ConfirmModal from '@/ds-components/ConfirmModal';
 import DynamicT from '@/ds-components/DynamicT';
@@ -67,12 +67,12 @@ function EnterpriseSsoDetails() {
 
   const isDarkModeEnabled = signInExperience?.color.isDarkModeEnabled ?? false;
 
-  const isIdpInitiatedAuthEnabled = useMemo(
+  const isIdpInitiatedAuthConfigEnabled = useMemo(
     () =>
+      isDevFeaturesEnabled &&
       isCloud &&
       ssoConnector?.providerType === SsoProviderType.SAML &&
-      // TODO: @simeng: Replace this with new IdP-initiated auth quota guard
-      Boolean(currentSubscriptionQuota.enterpriseSsoLimit),
+      currentSubscriptionQuota.idpInitiatedSsoEnabled,
     [ssoConnector, currentSubscriptionQuota]
   );
 
@@ -153,7 +153,7 @@ function EnterpriseSsoDetails() {
             >
               <DynamicT forKey="enterprise_sso_details.tab_experience" />
             </TabNavItem>
-            {isIdpInitiatedAuthEnabled && (
+            {isIdpInitiatedAuthConfigEnabled && (
               <TabNavItem
                 href={getSsoConnectorDetailsPathname(
                   ssoConnectorId,
@@ -183,7 +183,7 @@ function EnterpriseSsoDetails() {
               }}
             />
           )}
-          {isIdpInitiatedAuthEnabled && tab === EnterpriseSsoDetailsTabs.IdpInitiatedAuth && (
+          {isIdpInitiatedAuthConfigEnabled && tab === EnterpriseSsoDetailsTabs.IdpInitiatedAuth && (
             <IdpInitiatedAuth ssoConnector={ssoConnector} />
           )}
           <ConfirmModal
