@@ -1,5 +1,5 @@
-import { cond, condString } from '@silverhand/essentials';
-import { useContext, useMemo } from 'react';
+import { cond, pick } from '@silverhand/essentials';
+import { useContext, useEffect, useMemo } from 'react';
 import useSWR from 'swr';
 
 import { useCloudApi } from '@/cloud/hooks/use-cloud-api';
@@ -21,25 +21,24 @@ import { type NewSubscriptionContext } from './types';
 const useNewSubscriptionData: () => NewSubscriptionContext & { isLoading: boolean } = () => {
   const cloudApi = useCloudApi();
 
-  const { currentTenant } = useContext(TenantsContext);
+  const { currentTenant, currentTenantId, updateTenant } = useContext(TenantsContext);
   const { isLoading: isLogtoSkusLoading, data: fetchedLogtoSkus } = useLogtoSkus();
-  const tenantId = condString(currentTenant?.id);
 
   const {
     data: currentSubscription,
     isLoading: isSubscriptionLoading,
     mutate: mutateSubscription,
-  } = useSubscription(tenantId);
+  } = useSubscription(currentTenantId);
 
   const {
     data: subscriptionUsageData,
     isLoading: isSubscriptionUsageDataLoading,
     mutate: mutateSubscriptionQuotaAndUsages,
   } = useSWR<NewSubscriptionUsageResponse, Error>(
-    isCloud && tenantId && `/api/tenants/${tenantId}/subscription-usage`,
+    isCloud && currentTenantId && `/api/tenants/${currentTenantId}/subscription-usage`,
     async () =>
       cloudApi.get('/api/tenants/:tenantId/subscription-usage', {
-        params: { tenantId },
+        params: { tenantId: currentTenantId },
       })
   );
 
@@ -49,6 +48,14 @@ const useNewSubscriptionData: () => NewSubscriptionContext & { isLoading: boolea
     () => logtoSkus.find((logtoSku) => logtoSku.id === currentTenant?.planId) ?? defaultLogtoSku,
     [currentTenant?.planId, logtoSkus]
   );
+
+  useEffect(() => {
+    if (subscriptionUsageData?.quota) {
+      updateTenant(currentTenantId, {
+        quota: pick(subscriptionUsageData.quota, 'mauLimit', 'tokenLimit'),
+      });
+    }
+  }, [currentTenantId, subscriptionUsageData?.quota, updateTenant]);
 
   return useMemo(
     () => ({
