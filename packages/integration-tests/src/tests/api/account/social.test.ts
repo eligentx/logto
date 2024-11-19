@@ -6,6 +6,7 @@ import {
   mockSocialConnectorId,
   mockSocialConnectorTarget,
 } from '#src/__mocks__/connectors-mock.js';
+import { enableAllAccountCenterFields } from '#src/api/account-center.js';
 import { deleteIdentity, getUserInfo, updateIdentities } from '#src/api/profile.js';
 import {
   createSocialVerificationRecord,
@@ -28,7 +29,7 @@ import { devFeatureTest } from '#src/utils.js';
 
 const { describe, it } = devFeatureTest;
 
-describe('profile (social)', () => {
+describe('account (social)', () => {
   const state = 'fake_state';
   const redirectUri = 'http://localhost:3000/redirect';
   const authorizationCode = 'fake_code';
@@ -36,6 +37,7 @@ describe('profile (social)', () => {
 
   beforeAll(async () => {
     await enableAllPasswordSignInMethods();
+    await enableAllAccountCenterFields();
 
     await clearConnectorsByTypes([ConnectorType.Social]);
     const { id: socialConnectorId } = await setSocialConnector();
@@ -48,13 +50,14 @@ describe('profile (social)', () => {
     await clearConnectorsByTypes([ConnectorType.Social, ConnectorType.Email]);
   });
 
-  describe('POST /profile/identities', () => {
+  describe('POST /account/identities', () => {
     it('should fail if scope is missing', async () => {
       const { user, username, password } = await createDefaultTenantUserWithPassword();
       const api = await signInAndGetUserApi(username, password);
+      const verificationRecordId = await createVerificationRecordByPassword(api, password);
 
       await expectRejects(
-        updateIdentities(api, 'invalid-verification-record-id', 'new-verification-record-id'),
+        updateIdentities(api, verificationRecordId, 'new-verification-record-id'),
         {
           code: 'auth.unauthorized',
           status: 400,
@@ -105,7 +108,6 @@ describe('profile (social)', () => {
         const api = await signInAndGetUserApi(username, password, {
           scopes: [UserScope.Profile, UserScope.Identities],
         });
-
         await expectRejects(
           createSocialVerificationRecord(api, 'invalid-connector-id', state, redirectUri),
           {
@@ -167,18 +169,16 @@ describe('profile (social)', () => {
     });
   });
 
-  describe('DELETE /profile/identities/:target', () => {
+  describe('DELETE /account/identities/:target', () => {
     it('should fail if scope is missing', async () => {
       const { user, username, password } = await createDefaultTenantUserWithPassword();
       const api = await signInAndGetUserApi(username, password);
+      const verificationRecordId = await createVerificationRecordByPassword(api, password);
 
-      await expectRejects(
-        deleteIdentity(api, mockSocialConnectorTarget, 'invalid-verification-record-id'),
-        {
-          code: 'auth.unauthorized',
-          status: 400,
-        }
-      );
+      await expectRejects(deleteIdentity(api, mockSocialConnectorTarget, verificationRecordId), {
+        code: 'auth.unauthorized',
+        status: 400,
+      });
 
       await deleteDefaultTenantUser(user.id);
     });

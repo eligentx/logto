@@ -1,7 +1,9 @@
 import { UserScope } from '@logto/core-kit';
-import { hookEvents } from '@logto/schemas';
+import { hookEvents, SignInIdentifier } from '@logto/schemas';
 
+import { enableAllAccountCenterFields } from '#src/api/account-center.js';
 import { getUserInfo, updateOtherProfile, updatePassword, updateUser } from '#src/api/profile.js';
+import { updateSignInExperience } from '#src/api/sign-in-experience.js';
 import { createVerificationRecordByPassword } from '#src/api/verification-record.js';
 import { WebHookApiTest } from '#src/helpers/hook.js';
 import { expectRejects } from '#src/helpers/index.js';
@@ -19,14 +21,15 @@ import { assertHookLogResult } from '../hook/utils.js';
 
 const { describe, it } = devFeatureTest;
 
-describe('profile', () => {
+describe('account', () => {
   const webHookMockServer = new WebhookMockServer(9999);
   const webHookApi = new WebHookApiTest();
-  const hookName = 'profileApiHookEventListener';
+  const hookName = 'accountApiHookEventListener';
 
   beforeAll(async () => {
     await webHookMockServer.listen();
     await enableAllPasswordSignInMethods();
+    await enableAllAccountCenterFields();
   });
 
   afterAll(async () => {
@@ -45,7 +48,17 @@ describe('profile', () => {
     await webHookApi.cleanUp();
   });
 
-  describe('GET /profile', () => {
+  describe('GET /account', () => {
+    it('should allow all origins', async () => {
+      const { user, username, password } = await createDefaultTenantUserWithPassword();
+      const api = await signInAndGetUserApi(username, password);
+      const response = await api.get('api/account');
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+
+      await deleteDefaultTenantUser(user.id);
+    });
+
     it('should be able to get profile with default scopes', async () => {
       const { user, username, password } = await createDefaultTenantUserWithPassword();
       const api = await signInAndGetUserApi(username, password);
@@ -108,7 +121,7 @@ describe('profile', () => {
     });
   });
 
-  describe('PATCH /profile', () => {
+  describe('PATCH /account', () => {
     it('should be able to update name', async () => {
       const { user, username, password } = await createDefaultTenantUserWithPassword();
       const api = await signInAndGetUserApi(username, password);
@@ -162,6 +175,27 @@ describe('profile', () => {
       await deleteDefaultTenantUser(user.id);
     });
 
+    it('should be able to update username to null', async () => {
+      const { user, username, password } = await createDefaultTenantUserWithPassword();
+      const api = await signInAndGetUserApi(username, password);
+
+      await updateSignInExperience({
+        signUp: {
+          identifiers: [SignInIdentifier.Email],
+          password: true,
+          verify: true,
+        },
+      });
+      const response = await updateUser(api, { username: null });
+      expect(response).toMatchObject({ username: null });
+      await enableAllPasswordSignInMethods();
+
+      const userInfo = await getUserInfo(api);
+      expect(userInfo).toHaveProperty('username', null);
+
+      await deleteDefaultTenantUser(user.id);
+    });
+
     it('should fail if username is already in use', async () => {
       const { user, username, password } = await createDefaultTenantUserWithPassword();
       const { user: user2, username: username2 } = await createDefaultTenantUserWithPassword();
@@ -177,7 +211,7 @@ describe('profile', () => {
     });
   });
 
-  describe('PATCH /profile/profile', () => {
+  describe('PATCH /account/profile', () => {
     it('should be able to update other profile', async () => {
       const { user, username, password } = await createDefaultTenantUserWithPassword();
       const api = await signInAndGetUserApi(username, password);
@@ -224,7 +258,7 @@ describe('profile', () => {
     });
   });
 
-  describe('POST /profile/password', () => {
+  describe('POST /account/password', () => {
     it('should fail if verification record is invalid', async () => {
       const { user, username, password } = await createDefaultTenantUserWithPassword();
       const api = await signInAndGetUserApi(username, password);
@@ -242,8 +276,9 @@ describe('profile', () => {
       const { user, username, password } = await createDefaultTenantUserWithPassword();
       const api = await signInAndGetUserApi(username, password);
       const newPassword = '123456';
+      const verificationRecordId = await createVerificationRecordByPassword(api, password);
 
-      await expectRejects(updatePassword(api, 'invalid-varification-record-id', newPassword), {
+      await expectRejects(updatePassword(api, verificationRecordId, newPassword), {
         code: 'password.rejected',
         status: 422,
       });
