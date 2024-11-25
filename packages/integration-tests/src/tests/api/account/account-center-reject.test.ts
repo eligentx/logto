@@ -12,7 +12,7 @@ import {
   updatePrimaryEmail,
   updatePrimaryPhone,
   updateUser,
-} from '#src/api/profile.js';
+} from '#src/api/my-account.js';
 import { createVerificationRecordByPassword } from '#src/api/verification-record.js';
 import { expectRejects } from '#src/helpers/index.js';
 import {
@@ -21,9 +21,7 @@ import {
   signInAndGetUserApi,
 } from '#src/helpers/profile.js';
 import { enableAllPasswordSignInMethods } from '#src/helpers/sign-in-experience.js';
-import { devFeatureTest, generateEmail, generatePhone } from '#src/utils.js';
-
-const { describe, it } = devFeatureTest;
+import { generateEmail, generatePhone } from '#src/utils.js';
 
 const expectedError = {
   code: 'account_center.filed_not_editable',
@@ -42,7 +40,7 @@ describe('account center fields disabled', () => {
     });
   });
 
-  it('should return only name in GET /account', async () => {
+  it('should return only name in GET /my-account', async () => {
     const { user, username, password } = await createDefaultTenantUserWithPassword();
     const api = await signInAndGetUserApi(username, password, {
       scopes: [UserScope.Email],
