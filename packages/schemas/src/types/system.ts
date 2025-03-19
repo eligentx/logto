@@ -26,6 +26,7 @@ export enum StorageProvider {
   AzureStorage = 'AzureStorage',
   S3Storage = 'S3Storage',
   GoogleStorage = 'GoogleStorage',
+  MinIO = 'MinIO',
 }
 
 const basicConfig = {
@@ -44,7 +45,6 @@ export const storageProviderDataGuard = z.discriminatedUnion('provider', [
     endpoint: z.string().optional(),
     region: z.string().optional(),
     bucket: z.string(),
-    forcePathStyle: z.boolean().optional(),
     accessKeyId: z.string(),
     accessSecretKey: z.string(),
     ...basicConfig,
@@ -54,6 +54,15 @@ export const storageProviderDataGuard = z.discriminatedUnion('provider', [
     projectId: z.string(),
     keyFilename: z.string(),
     bucketName: z.string(),
+    ...basicConfig,
+  }),
+  z.object({
+    provider: z.literal(StorageProvider.MinIO),
+    endpoint: z.string(),
+    bucket: z.string(),
+    accessKeyId: z.string(),
+    accessSecretKey: z.string(),
+    region: z.string(),
     ...basicConfig,
   }),
 ]);
