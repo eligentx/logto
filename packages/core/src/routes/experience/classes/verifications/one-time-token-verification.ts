@@ -1,6 +1,8 @@
 import { type ToZodObject } from '@logto/connector-kit';
 import {
   type InteractionIdentifier,
+  type OneTimeTokenContext,
+  oneTimeTokenContextGuard,
   SignInIdentifier,
   type User,
   VerificationType,
@@ -23,6 +25,7 @@ export type OneTimeTokenVerificationRecordData = {
   type: VerificationType.OneTimeToken;
   identifier: InteractionIdentifier<SignInIdentifier.Email>;
   verified: boolean;
+  oneTimeTokenContext?: OneTimeTokenContext;
 };
 
 export const oneTimeTokenVerificationRecordDataGuard = z.object({
@@ -33,6 +36,7 @@ export const oneTimeTokenVerificationRecordDataGuard = z.object({
     type: z.literal(SignInIdentifier.Email),
     value: z.string(),
   }),
+  oneTimeTokenContext: oneTimeTokenContextGuard.optional(),
 }) satisfies ToZodObject<OneTimeTokenVerificationRecordData>;
 
 export class OneTimeTokenVerification
@@ -55,6 +59,7 @@ export class OneTimeTokenVerification
   readonly type = VerificationType.OneTimeToken;
   readonly id: string;
   readonly identifier: InteractionIdentifier<SignInIdentifier.Email>;
+  private context?: OneTimeTokenContext;
   private verified: boolean;
 
   /**
@@ -68,23 +73,32 @@ export class OneTimeTokenVerification
     private readonly queries: Queries,
     data: OneTimeTokenVerificationRecordData
   ) {
-    const { id, identifier, verified } = data;
+    const { id, identifier, verified, oneTimeTokenContext } = data;
 
     this.id = id;
     this.identifier = identifier;
     this.verified = verified;
+    this.context = oneTimeTokenContext;
   }
 
   get isVerified() {
     return this.verified;
   }
 
+  get oneTimeTokenContext() {
+    return this.context;
+  }
+
   /**
    * Verifies if the one-time token matches the record in database with the provided email.
    */
   async verify(token: string) {
-    await this.libraries.oneTimeTokens.verifyOneTimeToken(token, this.identifier.value);
+    const tokenRecord = await this.libraries.oneTimeTokens.verifyOneTimeToken(
+      token,
+      this.identifier.value
+    );
     this.verified = true;
+    this.context = tokenRecord.context;
   }
 
   async identifyUser(): Promise<User> {
@@ -116,13 +130,14 @@ export class OneTimeTokenVerification
     );
 
     const { value } = this.identifier;
+    const { jitOrganizationIds } = this.context ?? {};
 
-    return { primaryEmail: value };
+    return { primaryEmail: value, jitOrganizationIds };
   }
 
   toJson(): OneTimeTokenVerificationRecordData {
-    const { id, type, identifier, verified } = this;
+    const { id, type, identifier, verified, context } = this;
 
-    return { id, type, identifier, verified };
+    return { id, type, identifier, verified, oneTimeTokenContext: context };
   }
 }

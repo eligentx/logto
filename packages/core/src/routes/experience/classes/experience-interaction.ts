@@ -4,6 +4,7 @@ import { InteractionEvent, VerificationType, type User } from '@logto/schemas';
 import { conditional } from '@silverhand/essentials';
 import { z } from 'zod';
 
+import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import { type LogEntry } from '#src/middleware/koa-audit-log.js';
 import type TenantContext from '#src/tenants/TenantContext.js';
@@ -22,6 +23,7 @@ import {
   identifyUserByVerificationRecord,
   mergeUserMfaVerifications,
 } from './helpers.js';
+import { CaptchaValidator } from './libraries/captcha-validator.js';
 import { MfaValidator } from './libraries/mfa-validator.js';
 import { ProvisionLibrary } from './libraries/provision-library.js';
 import { SignInExperienceValidator } from './libraries/sign-in-experience-validator.js';
@@ -43,6 +45,10 @@ type InteractionStorage = {
   profile?: InteractionProfile;
   mfa?: MfaData;
   verificationRecords?: VerificationRecordData[];
+  captcha?: {
+    verified: boolean;
+    skipped: boolean;
+  };
 };
 
 const interactionStorageGuard = z.object({
@@ -51,6 +57,12 @@ const interactionStorageGuard = z.object({
   profile: interactionProfileGuard.optional(),
   mfa: mfaDataGuard.optional(),
   verificationRecords: verificationRecordDataGuard.array().optional(),
+  captcha: z
+    .object({
+      verified: z.boolean(),
+      skipped: z.boolean(),
+    })
+    .optional(),
 }) satisfies ToZodObject<InteractionStorage>;
 
 /**
@@ -72,6 +84,13 @@ export default class ExperienceInteraction {
   /** The userId of the user for the current interaction. Only available once the user is identified. */
   private userId?: string;
   private userCache?: User;
+
+  /** The captcha verification status for the current interaction. */
+  private readonly captcha = {
+    verified: false,
+    skipped: false,
+  };
+
   /** The interaction event for the current interaction. */
   #interactionEvent: InteractionEvent;
 
@@ -126,12 +145,17 @@ export default class ExperienceInteraction {
       mfa = {},
       userId,
       interactionEvent,
+      captcha = {
+        verified: false,
+        skipped: false,
+      },
     } = result.data;
 
     this.#interactionEvent = interactionEvent;
     this.userId = userId;
     this.profile = new Profile(libraries, queries, profile, interactionContext);
     this.mfa = new Mfa(libraries, queries, mfa, interactionContext);
+    this.captcha = captcha;
 
     for (const record of verificationRecords) {
       const instance = buildVerificationRecord(libraries, queries, record);
@@ -157,7 +181,10 @@ export default class ExperienceInteraction {
    * @throws RequestError with 400 if the interaction event is not `ForgotPassword` and the current interaction event is `ForgotPassword`
    */
   public async setInteractionEvent(interactionEvent: InteractionEvent) {
-    await this.signInExperienceValidator.guardInteractionEvent(interactionEvent);
+    await this.signInExperienceValidator.guardInteractionEvent(
+      interactionEvent,
+      this.verificationRecords.get(VerificationType.OneTimeToken)?.isVerified
+    );
 
     // `ForgotPassword` interaction event can not interchanged with other events
     assertThat(
@@ -257,13 +284,12 @@ export default class ExperienceInteraction {
       new RequestError({ code: 'session.invalid_interaction_type', status: 400 })
     );
 
-    await this.signInExperienceValidator.guardInteractionEvent(InteractionEvent.Register);
-
     if (verificationId) {
       const verificationRecord = this.getVerificationRecordById(verificationId);
+      const verificationData = verificationRecord.toJson();
 
       log?.append({
-        verification: verificationRecord.toJson(),
+        verification: verificationData,
       });
 
       await this.signInExperienceValidator.guardSsoOnlyEmailIdentifier(verificationRecord);
@@ -275,6 +301,11 @@ export default class ExperienceInteraction {
       await this.save();
     }
 
+    await this.signInExperienceValidator.guardInteractionEvent(
+      InteractionEvent.Register,
+      this.verificationRecords.get(VerificationType.OneTimeToken)?.isVerified
+    );
+    await this.guardCaptcha();
     await this.profile.assertUserMandatoryProfileFulfilled();
 
     const user = await this.provisionLibrary.createUser(this.profile.data);
@@ -342,6 +373,34 @@ export default class ExperienceInteraction {
     );
   }
 
+  /**
+   * Verify the captcha token using current tenant's captcha provider.
+   *
+   * @param token The captcha token to verify.
+   *
+   * @throws {RequestError} with 422 if the captcha verification fails
+   */
+  public async verifyCaptcha(token: string) {
+    const captchaProvider = await this.tenant.queries.captchaProviders.findCaptchaProvider();
+
+    assertThat(captchaProvider, new RequestError({ code: 'session.captcha_failed', status: 422 }));
+
+    const captchaValidator = new CaptchaValidator(captchaProvider);
+    const isVerified = await captchaValidator.verifyCaptcha(token);
+
+    assertThat(isVerified, new RequestError({ code: 'session.captcha_failed', status: 422 }));
+
+    this.captcha.verified = true;
+  }
+
+  /**
+   * Skip the captcha verification for the current interaction,
+   * for social, sso, etc.
+   */
+  public skipCaptcha() {
+    this.captcha.skipped = true;
+  }
+
   /** Save the current interaction result. */
   public async save() {
     const { provider } = this.tenant;
@@ -376,6 +435,8 @@ export default class ExperienceInteraction {
     const {
       queries: { users: userQueries, userSsoIdentities: userSsoIdentityQueries },
     } = this.tenant;
+
+    await this.guardCaptcha();
 
     // Identified
     const user = await this.getIdentifiedUser();
@@ -421,8 +482,13 @@ export default class ExperienceInteraction {
       await this.mfa.assertUserMandatoryMfaFulfilled();
     }
 
-    const { socialIdentity, enterpriseSsoIdentity, syncedEnterpriseSsoIdentity, ...rest } =
-      this.profile.data;
+    const {
+      socialIdentity,
+      enterpriseSsoIdentity,
+      syncedEnterpriseSsoIdentity,
+      jitOrganizationIds,
+      ...rest
+    } = this.profile.data;
     const { mfaSkipped, mfaVerifications } = this.mfa.toUserMfaVerifications();
 
     // Update user profile
@@ -468,6 +534,14 @@ export default class ExperienceInteraction {
       await this.provisionLibrary.addSsoIdentityToUser(user.id, enterpriseSsoIdentity);
     }
 
+    // Provision organizations for one-time token that carries organization IDs in the context.
+    if (jitOrganizationIds) {
+      await this.provisionLibrary.provisionJitOrganization({
+        userId: user.id,
+        organizationIds: jitOrganizationIds,
+      });
+    }
+
     const { provider } = this.tenant;
 
     const redirectTo = await provider.interactionResult(this.ctx.req, this.ctx.res, {
@@ -485,7 +559,7 @@ export default class ExperienceInteraction {
 
   /** Convert the current interaction to JSON, so that it can be stored as the OIDC provider interaction result */
   public toJson(): InteractionStorage {
-    const { interactionEvent, userId } = this;
+    const { interactionEvent, userId, captcha } = this;
 
     return {
       interactionEvent,
@@ -493,6 +567,7 @@ export default class ExperienceInteraction {
       profile: this.profile.data,
       mfa: this.mfa.data,
       verificationRecords: this.verificationRecordsArray.map((record) => record.toJson()),
+      captcha,
     };
   }
 
@@ -548,6 +623,18 @@ export default class ExperienceInteraction {
     const ssoVerificationRecord = this.verificationRecords.get(VerificationType.EnterpriseSso);
 
     return Boolean(ssoVerificationRecord?.isVerified);
+  }
+
+  private async guardCaptcha() {
+    if (!EnvSet.values.isDevFeaturesEnabled) {
+      return;
+    }
+
+    if (this.captcha.verified || this.captcha.skipped) {
+      return;
+    }
+
+    await this.signInExperienceValidator.guardCaptcha();
   }
 
   /**
