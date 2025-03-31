@@ -39,6 +39,10 @@ const mfa = {
     'Zapytaj użytkowników o skonfigurowanie MFA podczas rejestracji (można pominąć, jednorazowy monit)',
   prompt_only_at_sign_in:
     'Zapytaj użytkowników o skonfigurowanie MFA przy następnym logowaniu po rejestracji (można pominąć, jednorazowy monit)',
+  set_up_organization_required_mfa_prompt:
+    'Monit o konfigurację MFA dla organizacji wymagającej MFA',
+  prompt_at_sign_in_no_skip:
+    'Wymagaj od użytkowników skonfigurowania MFA przy następnym logowaniu (nie można pominąć)',
 };
 
 export default Object.freeze(mfa);

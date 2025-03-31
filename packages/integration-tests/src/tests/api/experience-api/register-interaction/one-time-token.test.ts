@@ -40,7 +40,9 @@ describe('Register interaction with one-time token happy path', () => {
   });
 
   it('should successfully register a new user with a magic link containing a one-time token', async () => {
-    const client = await initExperienceClient(InteractionEvent.Register);
+    const client = await initExperienceClient({
+      interactionEvent: InteractionEvent.Register,
+    });
 
     const oneTimeToken = await createOneTimeToken({
       email: 'foo@logto.io',
@@ -72,7 +74,9 @@ describe('Register interaction with one-time token happy path', () => {
       email: userProfile.primaryEmail,
     });
 
-    const client = await initExperienceClient(InteractionEvent.Register);
+    const client = await initExperienceClient({
+      interactionEvent: InteractionEvent.Register,
+    });
 
     const { verificationId } = await client.verifyOneTimeToken({
       token: oneTimeToken.token,
@@ -111,7 +115,9 @@ describe('Register interaction with one-time token happy path', () => {
       },
     });
 
-    const client = await initExperienceClient(InteractionEvent.Register);
+    const client = await initExperienceClient({
+      interactionEvent: InteractionEvent.Register,
+    });
 
     const oneTimeToken = await createOneTimeToken({
       email: 'bar@logto.io',
@@ -133,6 +139,41 @@ describe('Register interaction with one-time token happy path', () => {
     const password = generatePassword();
 
     await client.updateProfile({ type: 'password', value: password });
+
+    await client.identifyUser({ verificationId });
+
+    const { redirectTo } = await client.submitInteraction();
+    const userId = await processSession(client, redirectTo);
+    await logoutClient(client);
+    await deleteUser(userId);
+  });
+
+  it('should allow user registration through one-time token even if the registration is turned off', async () => {
+    // Turn off registration by setting sign-in mode to "SignIn"
+    await updateSignInExperience({
+      signInMode: SignInMode.SignIn,
+      signUp: {
+        identifiers: [SignInIdentifier.Email],
+        password: false,
+        verify: true,
+      },
+    });
+
+    const client = await initExperienceClient({
+      interactionEvent: InteractionEvent.Register,
+    });
+
+    const oneTimeToken = await createOneTimeToken({
+      email: 'foo@logto.io',
+    });
+
+    const { verificationId } = await client.verifyOneTimeToken({
+      token: oneTimeToken.token,
+      identifier: {
+        type: SignInIdentifier.Email,
+        value: 'foo@logto.io',
+      },
+    });
 
     await client.identifyUser({ verificationId });
 

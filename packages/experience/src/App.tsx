@@ -7,6 +7,7 @@ import LoadingLayerProvider from './Providers/LoadingLayerProvider';
 import PageContextProvider from './Providers/PageContextProvider';
 import SettingsProvider from './Providers/SettingsProvider';
 import UserInteractionContextProvider from './Providers/UserInteractionContextProvider';
+import { isDevFeaturesEnabled } from './constants/env';
 import DevelopmentTenantNotification from './containers/DevelopmentTenantNotification';
 import Callback from './pages/Callback';
 import Consent from './pages/Consent';
@@ -24,6 +25,7 @@ import MfaVerification from './pages/MfaVerification';
 import BackupCodeVerification from './pages/MfaVerification/BackupCodeVerification';
 import TotpVerification from './pages/MfaVerification/TotpVerification';
 import WebAuthnVerification from './pages/MfaVerification/WebAuthnVerification';
+import OneTimeToken from './pages/OneTimeToken';
 import Register from './pages/Register';
 import RegisterPassword from './pages/RegisterPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -37,6 +39,7 @@ import SocialLanding from './pages/SocialLanding';
 import SocialLinkAccount from './pages/SocialLinkAccount';
 import SocialSignInWebCallback from './pages/SocialSignInWebCallback';
 import Springboard from './pages/Springboard';
+import SwitchAccount from './pages/SwitchAccount';
 import VerificationCode from './pages/VerificationCode';
 import { UserMfaFlow } from './types';
 import { handleSearchParametersData } from './utils/search-parameters';
@@ -61,8 +64,13 @@ const App = () => {
                     element={<SocialSignInWebCallback />}
                   />
                   <Route path="direct/:method/:target?" element={<DirectSignIn />} />
-
                   <Route element={<AppLayout />}>
+                    {isDevFeaturesEnabled && (
+                      <>
+                        <Route path="one-time-token" element={<OneTimeToken />} />
+                        <Route path={experience.routes.switchAccount} element={<SwitchAccount />} />
+                      </>
+                    )}
                     <Route
                       path="unknown-session"
                       element={<ErrorPage message="error.invalid_session" />}
@@ -153,7 +161,6 @@ const App = () => {
                       path={experience.routes.resetPassword}
                       element={<ResetPasswordLanding />}
                     />
-
                     <Route path="*" element={<ErrorPage />} />
                   </Route>
                 </Route>
