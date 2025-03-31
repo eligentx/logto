@@ -1,7 +1,6 @@
 import {
   InteractionEvent,
   SignInIdentifier,
-  SignInMode,
   type VerificationCodeIdentifier,
 } from '@logto/schemas';
 import { useCallback, useMemo } from 'react';
@@ -14,8 +13,8 @@ import { useConfirmModal } from '@/hooks/use-confirm-modal';
 import type { ErrorHandlers } from '@/hooks/use-error-handler';
 import useErrorHandler from '@/hooks/use-error-handler';
 import useGlobalRedirectTo from '@/hooks/use-global-redirect-to';
-import usePreSignInErrorHandler from '@/hooks/use-pre-sign-in-error-handler';
 import { useSieMethods } from '@/hooks/use-sie';
+import useSubmitInteractionErrorHandler from '@/hooks/use-submit-interaction-error-handler';
 import { formatPhoneNumberWithCountryCallingCode } from '@/utils/country-code';
 
 import useGeneralVerificationCodeErrorHandler from './use-general-verification-code-error-handler';
@@ -31,7 +30,7 @@ const useRegisterFlowCodeVerification = (
   const navigate = useNavigate();
   const redirectTo = useGlobalRedirectTo();
 
-  const { signInMode, signInMethods } = useSieMethods();
+  const { isVerificationCodeEnabledForSignIn } = useSieMethods();
 
   const handleError = useErrorHandler();
 
@@ -41,12 +40,11 @@ const useRegisterFlowCodeVerification = (
   const { errorMessage, clearErrorMessage, generalVerificationCodeErrorHandlers } =
     useGeneralVerificationCodeErrorHandler();
 
-  const preRegisterErrorHandler = usePreSignInErrorHandler({
+  const preRegisterErrorHandler = useSubmitInteractionErrorHandler(InteractionEvent.Register, {
     replace: true,
-    interactionEvent: InteractionEvent.Register,
   });
 
-  const preSignInErrorHandler = usePreSignInErrorHandler({
+  const preSignInErrorHandler = useSubmitInteractionErrorHandler(InteractionEvent.SignIn, {
     replace: true,
   });
 
@@ -55,17 +53,12 @@ const useRegisterFlowCodeVerification = (
   const identifierExistsErrorHandler = useCallback(async () => {
     const { type, value } = identifier;
 
-    if (
-      // Should not redirect user to sign-in if is register-only mode
-      signInMode === SignInMode.Register ||
-      // Should not redirect user to sign-in if the verification code authentication method is not enabled for sign-in
-      !signInMethods.find(({ identifier }) => identifier === type)?.verificationCode
-    ) {
+    if (!isVerificationCodeEnabledForSignIn(type)) {
       void showIdentifierErrorAlert(IdentifierErrorType.IdentifierAlreadyExists, type, value);
-
       return;
     }
 
+    // TODO: replace with use-sign-in-with-exist-identifier-confirm-model.ts
     show({
       confirmText: 'action.sign_in',
       ModalContent: t('description.create_account_id_exists', {
@@ -92,8 +85,7 @@ const useRegisterFlowCodeVerification = (
     });
   }, [
     identifier,
-    signInMode,
-    signInMethods,
+    isVerificationCodeEnabledForSignIn,
     show,
     t,
     showIdentifierErrorAlert,

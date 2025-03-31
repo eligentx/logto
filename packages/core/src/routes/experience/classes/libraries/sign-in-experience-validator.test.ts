@@ -1,20 +1,24 @@
+/* eslint-disable max-lines */
 import { TemplateType } from '@logto/connector-kit';
 import {
   InteractionEvent,
+  MissingProfile,
   type SignInExperience,
   SignInIdentifier,
   SignInMode,
   VerificationType,
 } from '@logto/schemas';
+import Sinon, { type SinonStub } from 'sinon';
 
 import { mockSignInExperience } from '#src/__mocks__/sign-in-experience.js';
+import { EnvSet } from '#src/env-set/index.js';
 import RequestError from '#src/errors/RequestError/index.js';
 import { MockTenant } from '#src/test-utils/tenant.js';
 
 import { createNewCodeVerificationRecord } from '../verifications/code-verification.js';
 import { EnterpriseSsoVerification } from '../verifications/enterprise-sso-verification.js';
 import { type VerificationRecord } from '../verifications/index.js';
-import { NewPasswordIdentityVerification } from '../verifications/new-password-identity-verification.js';
+import { OneTimeTokenVerification } from '../verifications/one-time-token-verification.js';
 import { PasswordVerification } from '../verifications/password-verification.js';
 import { SocialVerification } from '../verifications/social-verification.js';
 
@@ -32,24 +36,6 @@ const ssoConnectors = {
 };
 
 const mockTenant = new MockTenant(undefined, { signInExperiences }, undefined, { ssoConnectors });
-
-const newPasswordIdentityVerificationRecord = NewPasswordIdentityVerification.create(
-  mockTenant.libraries,
-  mockTenant.queries,
-  {
-    type: SignInIdentifier.Username,
-    value: 'username',
-  }
-);
-
-const emailNewPasswordIdentityVerificationRecord = NewPasswordIdentityVerification.create(
-  mockTenant.libraries,
-  mockTenant.queries,
-  {
-    type: SignInIdentifier.Email,
-    value: `foo@${emailDomain}`,
-  }
-);
 
 const passwordVerificationRecords = Object.fromEntries(
   Object.values(SignInIdentifier).map((identifier) => [
@@ -98,6 +84,17 @@ const socialVerificationRecord = new SocialVerification(mockTenant.libraries, mo
   },
 });
 
+const oneTimeTokenVerificationRecord = new OneTimeTokenVerification(
+  mockTenant.libraries,
+  mockTenant.queries,
+  {
+    id: 'one_time_token_verification_id',
+    type: VerificationType.OneTimeToken,
+    identifier: { type: SignInIdentifier.Email, value: 'foo@logto.io' },
+    verified: true,
+  }
+);
+
 describe('SignInExperienceValidator', () => {
   describe('guardInteractionEvent', () => {
     it('SignInMode.Register', async () => {
@@ -137,6 +134,15 @@ describe('SignInExperienceValidator', () => {
       await expect(
         signInExperienceSettings.guardInteractionEvent(InteractionEvent.Register)
       ).rejects.toMatchError(new RequestError({ code: 'auth.forbidden', status: 403 }));
+
+      // Should not throw if there's a verified one-time token. In this case, even the registration
+      // is turned off, the user can still register.
+      await expect(
+        signInExperienceSettings.guardInteractionEvent(
+          InteractionEvent.Register,
+          oneTimeTokenVerificationRecord.isVerified
+        )
+      ).resolves.not.toThrow();
 
       await expect(
         signInExperienceSettings.guardInteractionEvent(InteractionEvent.SignIn)
@@ -397,4 +403,137 @@ describe('SignInExperienceValidator', () => {
       ).rejects.toMatchError(expectError);
     });
   });
+
+  describe('getMandatoryUserProfileBySignUpMethods', () => {
+    const testCases: Array<[SignInExperience['signUp'], Set<MissingProfile>]> = [
+      [
+        {
+          identifiers: [SignInIdentifier.Username],
+          password: true,
+          verify: false,
+        },
+        new Set([MissingProfile.password, MissingProfile.username]),
+      ],
+      [
+        {
+          identifiers: [SignInIdentifier.Email],
+          password: false,
+          verify: true,
+        },
+        new Set([MissingProfile.email]),
+      ],
+      [
+        {
+          identifiers: [SignInIdentifier.Phone, SignInIdentifier.Email],
+          password: true,
+          verify: true,
+        },
+        new Set([MissingProfile.password, MissingProfile.emailOrPhone]),
+      ],
+    ];
+
+    it.each(testCases)('signUp: %p', async (signUp, expected) => {
+      signInExperiences.findDefaultSignInExperience.mockResolvedValueOnce({
+        ...mockSignInExperience,
+        signUp,
+      });
+
+      const signInExperienceValidator = new SignInExperienceValidator(
+        mockTenant.libraries,
+        mockTenant.queries
+      );
+
+      const result = await signInExperienceValidator.getMandatoryUserProfileBySignUpMethods();
+      expect(result).toEqual(expected);
+    });
+
+    it('should early return with unsupported signUp identifiers', async () => {
+      signInExperiences.findDefaultSignInExperience.mockResolvedValueOnce({
+        ...mockSignInExperience,
+        signUp: {
+          identifiers: [SignInIdentifier.Email, SignInIdentifier.Username],
+          password: true,
+          verify: true,
+        },
+      });
+      const signInExperienceValidator = new SignInExperienceValidator(
+        mockTenant.libraries,
+        mockTenant.queries
+      );
+
+      const result = await signInExperienceValidator.getMandatoryUserProfileBySignUpMethods();
+      expect(result).toEqual(new Set([MissingProfile.username, MissingProfile.password]));
+    });
+
+    describe('getMandatoryUserProfileBySignUpMethods with secondary identifiers provided', () => {
+      // eslint-disable-next-line @silverhand/fp/no-let
+      let stub: SinonStub;
+
+      beforeAll(() => {
+        // eslint-disable-next-line @silverhand/fp/no-mutation
+        stub = Sinon.stub(EnvSet, 'values').value({
+          ...EnvSet.values,
+          isDevFeatureEnabled: true,
+        });
+      });
+
+      afterAll(() => {
+        stub.restore();
+      });
+
+      const testCases: Array<[SignInExperience['signUp'], Set<MissingProfile>]> = [
+        [
+          {
+            identifiers: [SignInIdentifier.Username],
+            password: true,
+            verify: true,
+            secondaryIdentifiers: [
+              { identifier: SignInIdentifier.Email },
+              { identifier: SignInIdentifier.Phone },
+            ],
+          },
+          new Set([
+            MissingProfile.username,
+            MissingProfile.password,
+            MissingProfile.email,
+            MissingProfile.phone,
+          ]),
+        ],
+        [
+          {
+            identifiers: [SignInIdentifier.Email],
+            password: false,
+            verify: true,
+            secondaryIdentifiers: [{ identifier: SignInIdentifier.Username }],
+          },
+          new Set([MissingProfile.email, MissingProfile.username]),
+        ],
+        [
+          {
+            identifiers: [SignInIdentifier.Phone, SignInIdentifier.Email],
+            password: true,
+            verify: true,
+            secondaryIdentifiers: [{ identifier: SignInIdentifier.Username }],
+          },
+          new Set([MissingProfile.password, MissingProfile.emailOrPhone, MissingProfile.username]),
+        ],
+      ];
+
+      it.each(testCases)('signUp: %p', async (signUp, expected) => {
+        signInExperiences.findDefaultSignInExperience.mockResolvedValueOnce({
+          ...mockSignInExperience,
+          signUp,
+        });
+
+        const signInExperienceValidator = new SignInExperienceValidator(
+          mockTenant.libraries,
+          mockTenant.queries
+        );
+
+        const result = await signInExperienceValidator.getMandatoryUserProfileBySignUpMethods();
+        expect(result).toEqual(expected);
+      });
+    });
+  });
 });
+/* eslint-enable max-lines */

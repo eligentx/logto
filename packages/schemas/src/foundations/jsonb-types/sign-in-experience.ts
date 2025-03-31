@@ -53,13 +53,82 @@ export enum AdditionalIdentifier {
   UserId = 'userId',
 }
 
+export enum AlternativeSignUpIdentifier {
+  EmailOrPhone = 'emailOrPhone',
+}
+
+export type SignUpIdentifier = SignInIdentifier | AlternativeSignUpIdentifier;
+
+type RequiredSignUpIdentifierSettings = {
+  identifier: SignUpIdentifier;
+  /**
+   * For `email` and `phone` identifiers only. If `true`, the user must verify the email or phone number.
+   */
+  verify?: boolean;
+};
+
+/**
+ * @example
+ * ```ts
+ * {
+ *  identifiers: ['email', 'phone'],
+ *  password: true,
+ *  verify: true,
+ *  secondaryIdentifiers: [{
+ *    identifier: 'username',
+ *  }]
+ * }
+ * ```
+ * - Email or phone number is required as the primary identifier.
+ * - The user must set up a password.
+ * - The user must verify their email or phone number.
+ * - In addition to the primary identifier, the user must provide a username.
+ *
+ * @example
+ * ```ts
+ * {
+ *  identifiers: ['username'],
+ *  password: true,
+ *  verify: false,
+ *  secondaryIdentifiers: [{
+ *    identifier: 'emailOrPhone',
+ *    verified: true,
+ *  }]
+ * }
+ * ```
+ * - Username is required as the primary identifier.
+ * - The user must set up a password.
+ * - In addition to the primary identifier, the user must provide an email or phone number.
+ * - The user must verify the email or phone number.
+ */
+export type SignUp = {
+  /** Primary identifiers that are required to sign up. */
+  identifiers: SignInIdentifier[];
+  /** Whether the user should set up a password */
+  password: boolean;
+  /**
+   * Whether the user should verify their email or phone number.
+   *
+   * @remarks
+   * This field is only relevant if the `email` or `phone` identifier is required as the primary identifier.
+   **/
+  verify: boolean;
+  /** Secondary identifiers that are required during sign up. */
+  secondaryIdentifiers?: RequiredSignUpIdentifierSettings[];
+};
+
 export const signUpGuard = z.object({
   identifiers: z.nativeEnum(SignInIdentifier).array(),
   password: z.boolean(),
   verify: z.boolean(),
-});
-
-export type SignUp = z.infer<typeof signUpGuard>;
+  secondaryIdentifiers: z
+    .object({
+      identifier: z.union([signInIdentifierGuard, z.nativeEnum(AlternativeSignUpIdentifier)]),
+      verify: z.boolean().optional(),
+    })
+    .array()
+    .optional(),
+}) satisfies ToZodObject<SignUp>;
 
 export const signInGuard = z.object({
   methods: z
@@ -162,9 +231,7 @@ export const customUiAssetsGuard = z.object({
 export type CustomUiAssets = z.infer<typeof customUiAssetsGuard>;
 
 export const captchaPolicyGuard = z.object({
-  signIn: z.boolean().optional(),
-  signUp: z.boolean().optional(),
-  forgotPassword: z.boolean().optional(),
+  enabled: z.boolean().optional(),
 });
 
 export type CaptchaPolicy = z.infer<typeof captchaPolicyGuard>;
